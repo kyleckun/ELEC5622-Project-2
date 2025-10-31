@@ -11,18 +11,23 @@ from model import get_model
 from dataset import get_dataloaders
 
 class Trainer:
-    def __init__(self, model, train_loader, val_loader, device, 
-                 lr=0.001, num_epochs=30):
+    def __init__(self, model, train_loader, val_loader, device,
+                 lr=0.001, num_epochs=30, label_smoothing=0.1,
+                 early_stopping_patience=10):
         self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
         self.num_epochs = num_epochs
-        
-        # Loss function and optimizer
-        self.criterion = nn.CrossEntropyLoss()
+        self.early_stopping_patience = early_stopping_patience
+
+        # Loss function with Label Smoothing (防止过拟合)
+        self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        print(f"✓ Using Label Smoothing: {label_smoothing}")
+
+        # Optimizer with stronger weight decay
         self.optimizer = optim.SGD(model.parameters(), lr=lr,
-                                   momentum=0.9, weight_decay=5e-4)
+                                   momentum=0.9, weight_decay=1e-3)  # 增加weight decay
         # Learning rate scheduler
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer,
                                                    step_size=10, gamma=0.1)
@@ -35,9 +40,10 @@ class Trainer:
             'val_acc': [],
             'lr': []
         }
-        
+
         self.best_val_acc = 0.0
         self.best_epoch = 0
+        self.patience_counter = 0  # Early stopping计数器
     
     def train_epoch(self):
         """Train one epoch"""
@@ -129,10 +135,11 @@ class Trainer:
             print(f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.2f}%")
             print(f"Learning Rate: {current_lr:.6f}")
 
-            # Save best model
+            # Save best model and early stopping check
             if val_acc > self.best_val_acc:
                 self.best_val_acc = val_acc
                 self.best_epoch = epoch + 1
+                self.patience_counter = 0  # 重置计数器
                 torch.save({
                     'epoch': epoch,
                     'model_state_dict': self.model.state_dict(),
@@ -141,6 +148,17 @@ class Trainer:
                     'train_acc': train_acc,
                 }, os.path.join(save_dir, 'best_model.pth'))
                 print(f"✓ Best model saved! Val Acc: {val_acc:.2f}%")
+            else:
+                self.patience_counter += 1
+                print(f"  Early stopping patience: {self.patience_counter}/{self.early_stopping_patience}")
+
+                # Early stopping
+                if self.patience_counter >= self.early_stopping_patience:
+                    print(f"\n{'='*60}")
+                    print(f"Early stopping triggered! No improvement for {self.early_stopping_patience} epochs.")
+                    print(f"Best Val Acc: {self.best_val_acc:.2f}% (Epoch {self.best_epoch})")
+                    print(f"{'='*60}")
+                    break
 
             # Save checkpoint every 5 epochs
             if (epoch + 1) % 5 == 0:
@@ -200,15 +218,18 @@ class Trainer:
 
 
 def main():
-    # Configuration parameters
+    # Configuration parameters - 优化以防止过拟合
     config = {
         'data_root': 'data',  # Data root directory (contains train/val/test)
         'csv_file': 'data/gt_training.csv',  # CSV file path
-        'batch_size': 32,
-        'lr': 0.001,
-        'num_epochs': 30,
+        'batch_size': 16,  # 减小batch size (32 -> 16)，增加随机性
+        'lr': 0.0005,  # 降低学习率 (0.001 -> 0.0005)，更稳定的训练
+        'num_epochs': 50,  # 增加最大epoch数，配合early stopping
         'augment': True,  # Whether to use data augmentation
-        'freeze_features': False,  # Whether to freeze feature layers
+        'freeze_features': True,  # 冻结特征层，只训练分类器（重要！）
+        'dropout_p': 0.7,  # Dropout概率
+        'label_smoothing': 0.1,  # Label smoothing系数
+        'early_stopping_patience': 15,  # Early stopping耐心值
     }
 
     # Device
@@ -226,18 +247,32 @@ def main():
         batch_size=config['batch_size'],
         augment=config['augment']
     )
-    
+
     print(f"\n✓ Data loaded successfully!")
     print(f"  Train batches: {len(train_loader)}")
     print(f"  Val batches: {len(val_loader)}")
     print(f"  Test batches: {len(test_loader)}")
 
+    print("\n" + "="*60)
+    print("Configuration Summary:")
+    print("="*60)
+    print(f"  Batch size: {config['batch_size']}")
+    print(f"  Learning rate: {config['lr']}")
+    print(f"  Dropout: {config['dropout_p']}")
+    print(f"  Label smoothing: {config['label_smoothing']}")
+    print(f"  Freeze features: {config['freeze_features']}")
+    print(f"  Early stopping patience: {config['early_stopping_patience']}")
+    print("="*60)
+
     print("\nCreating model...")
     model = get_model(num_classes=6, pretrained=True,
-                     freeze_features=config['freeze_features'])
+                     freeze_features=config['freeze_features'],
+                     dropout_p=config['dropout_p'])
 
     trainer = Trainer(model, train_loader, val_loader, device,
-                     lr=config['lr'], num_epochs=config['num_epochs'])
+                     lr=config['lr'], num_epochs=config['num_epochs'],
+                     label_smoothing=config['label_smoothing'],
+                     early_stopping_patience=config['early_stopping_patience'])
     trainer.train(save_dir='models')
 
 

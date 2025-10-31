@@ -71,23 +71,32 @@ class HEp2Dataset(Dataset):
 def get_data_transforms(augment=True):
     """
     获取数据预处理transforms
-    
+
     Args:
         augment: 是否使用数据增强
     """
     if augment:
-        # 训练集：使用数据增强
+        # 训练集：使用强数据增强（防止过拟合）
         train_transform = transforms.Compose([
             transforms.Resize(256),
-            transforms.RandomCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(15),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, 
-                                 saturation=0.2, hue=0.1),
+            transforms.RandomResizedCrop(224, scale=(0.7, 1.0)),  # 随机裁剪+缩放
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomVerticalFlip(p=0.3),  # 增加垂直翻转
+            transforms.RandomRotation(30),  # 增加旋转角度
+            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # 平移
+            transforms.ColorJitter(
+                brightness=0.3,  # 增加亮度变化
+                contrast=0.3,    # 增加对比度变化
+                saturation=0.3,  # 增加饱和度变化
+                hue=0.15         # 增加色调变化
+            ),
+            transforms.RandomGrayscale(p=0.1),  # 10%概率转灰度
             transforms.ToTensor(),
+            transforms.RandomErasing(p=0.3, scale=(0.02, 0.2)),  # Random Erasing
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                std=[0.229, 0.224, 0.225])
         ])
+        print("✓ Using strong data augmentation for training")
     else:
         # 不使用增强的baseline
         train_transform = transforms.Compose([
@@ -97,7 +106,7 @@ def get_data_transforms(augment=True):
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                std=[0.229, 0.224, 0.225])
         ])
-    
+
     # 验证集和测试集：不使用数据增强
     val_transform = transforms.Compose([
         transforms.Resize(256),
@@ -106,7 +115,7 @@ def get_data_transforms(augment=True):
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                            std=[0.229, 0.224, 0.225])
     ])
-    
+
     return train_transform, val_transform
 
 

@@ -187,13 +187,15 @@ def main():
     
     # 加载模型
     print("Loading model...")
-    model = get_model(num_classes=6, pretrained=False)
+    model = get_model(num_classes=6, pretrained=False, dropout_p=0.7)
     checkpoint = torch.load(config['model_path'], map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.to(device)
     print(f"✓ Model loaded from {config['model_path']}")
     if 'val_acc' in checkpoint:
         print(f"  Best validation accuracy: {checkpoint['val_acc']:.2f}%")
+    if 'epoch' in checkpoint:
+        print(f"  Best epoch: {checkpoint['epoch'] + 1}")
     
     # 测试
     y_pred, y_true, test_accuracy = test_model(model, test_loader, device)

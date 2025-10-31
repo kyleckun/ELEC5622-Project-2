@@ -7,25 +7,33 @@ class AlexNetFinetune(nn.Module):
     Fine-tuned AlexNet for HEp-2 cell classification
     """
     
-    def __init__(self, num_classes=6, pretrained=True):
+    def __init__(self, num_classes=6, pretrained=True, dropout_p=0.7):
         super(AlexNetFinetune, self).__init__()
-        
-        # 加载预训练的AlexNet
-        self.model = models.alexnet(pretrained=pretrained)
-        
-        # 修改最后的全连接层：1000 -> num_classes
-        # AlexNet的分类器结构：
-        # (classifier): Sequential(
-        #   (0): Dropout(p=0.5)
-        #   (1): Linear(in_features=9216, out_features=4096)
-        #   (2): ReLU(inplace=True)
-        #   (3): Dropout(p=0.5)
-        #   (4): Linear(in_features=4096, out_features=4096)
-        #   (5): ReLU(inplace=True)
-        #   (6): Linear(in_features=4096, out_features=1000)
-        # )
-        num_features = self.model.classifier[6].in_features
-        self.model.classifier[6] = nn.Linear(num_features, num_classes)
+
+        # 加载预训练的AlexNet（使用新的weights参数）
+        if pretrained:
+            from torchvision.models import AlexNet_Weights
+            self.model = models.alexnet(weights=AlexNet_Weights.IMAGENET1K_V1)
+        else:
+            self.model = models.alexnet(weights=None)
+
+        # 修改分类器以增强正则化（防止过拟合）
+        # 增加Dropout比率：0.5 -> 0.7
+        # 减少中间层神经元数量：4096 -> 2048
+        num_features = self.model.classifier[1].in_features  # 9216
+
+        self.model.classifier = nn.Sequential(
+            nn.Dropout(p=dropout_p),
+            nn.Linear(num_features, 2048),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=dropout_p),
+            nn.Linear(2048, 1024),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=dropout_p),
+            nn.Linear(1024, num_classes)
+        )
+
+        print(f"✓ Modified classifier with Dropout={dropout_p}, reduced neurons")
         
     def forward(self, x):
         return self.model(x)
@@ -43,22 +51,23 @@ class AlexNetFinetune(nn.Module):
         print("✓ All layers unfrozen.")
 
 
-def get_model(num_classes=6, pretrained=True, freeze_features=False):
+def get_model(num_classes=6, pretrained=True, freeze_features=False, dropout_p=0.7):
     """
     创建并返回模型
-    
+
     Args:
         num_classes: 类别数量
         pretrained: 是否使用预训练权重
         freeze_features: 是否冻结特征提取层
+        dropout_p: Dropout概率（默认0.7，增强正则化）
     """
-    model = AlexNetFinetune(num_classes=num_classes, pretrained=pretrained)
-    
+    model = AlexNetFinetune(num_classes=num_classes, pretrained=pretrained, dropout_p=dropout_p)
+
     if freeze_features:
         model.freeze_features()
     else:
         print("✓ All layers will be trained.")
-    
+
     return model
 
 
