@@ -3,6 +3,11 @@ import pandas as pd
 from PIL import Image
 import torch
 from torch.utils.data import Dataset, DataLoader
+import warnings
+
+# Filter torchvision image extension warning
+warnings.filterwarnings('ignore', category=UserWarning, module='torchvision.io.image')
+
 from torchvision import transforms
 
 class HEp2Dataset(Dataset):

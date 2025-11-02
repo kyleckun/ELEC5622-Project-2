@@ -921,22 +921,109 @@ Next Sections:
 
 # Section 4: Results
 
-[Role 2 - Experiment Lead to complete]
+[Role 2 - Experiment Lead to complete this section in detail]
 
-[See FULL_REPORT_TEMPLATE.md Section 4 for detailed framework]
+Note: Role 1 has completed model training with breakthrough results. This section should analyze and present these results comprehensively.
 
-Key data available:
+## Available Data and Resources
+
+Key files for analysis:
 - Training curves: models/training_curves.png
 - Confusion matrix: results/confusion_matrix.png
 - Per-class accuracy: results/class_accuracy.png
-- Classification report: results/classification_report.txt
+- Detailed metrics: results/classification_report.txt
+- Experiment log: experiments_log.json
+- Complete analysis: FINAL_RESULTS_SUMMARY.md
 
-Final Results Summary:
-- Training Accuracy: 72.67%
-- Validation Accuracy: 82.07%
-- Test Accuracy: 80.29%
-- Best Epoch: 27
-- Training Time: 23.62 minutes
+## Final Model Performance Summary
+
+After systematic optimization, the final model (Aggressive v1 configuration) achieved:
+
+**Overall Performance:**
+- Validation Accuracy: 95.26%
+- Test Accuracy: 93.12%
+- Training Accuracy: 91.38%
+- Best Epoch: 24
+- Total Epochs: 39 (early stopping)
+- Training Time: 29.63 minutes
+- Generalization Gap: 2.14%
+
+**Comparison with Baseline:**
+
+Table: Performance Improvement from Baseline to Final Model
+
+| Metric | Baseline | Final Model | Improvement |
+|--------|----------|-------------|-------------|
+| Validation Acc | 82.07% | 95.26% | +13.19% |
+| Test Acc | 80.29% | 93.12% | +12.83% |
+| Training Acc | 72.67% | 91.38% | +18.71% |
+| Best Epoch | 27 | 24 | -3 epochs |
+| Training Time | 23.62 min | 29.63 min | +6.01 min |
+
+**Key Configuration Changes:**
+- Unfroze feature layers (freeze_features: False)
+- Reduced dropout from 0.7 to 0.5
+- Increased learning rate from 0.0005 to 0.001
+- Increased batch size from 16 to 32
+- Removed label smoothing (0.1 to 0.0)
+- Reduced weight decay from 1e-3 to 5e-4
+
+## Per-Class Performance
+
+Table: Test Set Performance by Class
+
+| Class | Precision | Recall | F1-Score | Support |
+|-------|-----------|--------|----------|---------|
+| Homogeneous | 89.80% | 92.54% | 91.15% | 523 |
+| Speckled | 90.60% | 87.13% | 88.83% | 575 |
+| Nucleolar | 95.28% | 95.46% | 95.37% | 529 |
+| Centromere | 93.65% | 96.92% | 95.26% | 487 |
+| NuMem | 96.36% | 95.92% | 96.14% | 441 |
+| Golgi | 95.48% | 89.70% | 92.50% | 165 |
+| **Overall** | **93.13%** | **93.12%** | **93.12%** | **2720** |
+
+Observations:
+- NuMem achieves highest F1-Score (96.14%)
+- All classes exceed 88% F1-Score
+- Speckled shows lowest performance due to similarity with Homogeneous
+- Golgi maintains 92.50% despite smallest sample size (165 samples)
+
+## Confusion Analysis
+
+Top 5 Confusion Patterns:
+
+1. Speckled to Homogeneous: 41 samples (7.13% of Speckled)
+2. Homogeneous to Speckled: 29 samples (5.54% of Homogeneous)
+3. Speckled to Centromere: 19 samples (3.30% of Speckled)
+4. Golgi to Nucleolar: 9 samples (5.45% of Golgi)
+5. Centromere to Speckled: 9 samples (1.85% of Centromere)
+
+Main error source: Bidirectional confusion between Speckled and Homogeneous (70 total misclassifications)
+
+## Role 2 Tasks for This Section
+
+You should expand this section to 5-7 pages with:
+
+4.1 Training Performance (1-2 pages)
+- Training dynamics and convergence analysis
+- Learning curves interpretation (models/training_curves.png)
+- Configuration impact analysis with detailed table
+
+4.2 Test Set Performance (2-3 pages)
+- Overall results and generalization analysis
+- Detailed per-class performance with explanations
+- Confusion matrix analysis (results/confusion_matrix.png)
+- Per-class accuracy visualization (results/class_accuracy.png)
+
+4.3 Comparison Analysis (1 page)
+- Baseline vs final model comparison
+- Positioning relative to literature and ICPR 2014 competition results
+
+4.4 Computational Efficiency (0.5 page)
+- Training time, GPU usage, inference speed
+- Model size and deployment considerations
+
+See TEAM_HANDOFF.md for detailed instructions and data tables to use.
 
 ---
 

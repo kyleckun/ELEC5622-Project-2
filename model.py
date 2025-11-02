@@ -1,5 +1,10 @@
 import torch
 import torch.nn as nn
+import warnings
+
+# Filter torchvision image extension warning
+warnings.filterwarnings('ignore', category=UserWarning, module='torchvision.io.image')
+
 from torchvision import models
 
 class AlexNetFinetune(nn.Module):

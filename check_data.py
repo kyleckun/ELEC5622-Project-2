@@ -3,6 +3,10 @@ import pandas as pd
 from PIL import Image
 import matplotlib.pyplot as plt
 import numpy as np
+import warnings
+
+# Filter torchvision image extension warning
+warnings.filterwarnings('ignore', category=UserWarning, module='torchvision.io.image')
 
 def check_data_structure(data_root, csv_file):
     """检查数据集结构和完整性"""

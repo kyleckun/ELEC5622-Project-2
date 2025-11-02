@@ -5,6 +5,10 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 from tqdm import tqdm
 import os
+import warnings
+
+# Filter torchvision image extension warning
+warnings.filterwarnings('ignore', category=UserWarning, module='torchvision.io.image')
 
 from model import get_model
 from dataset import get_dataloaders

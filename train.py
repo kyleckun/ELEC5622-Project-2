@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import os
 import json
 import time
+import warnings
+
+# Filter torchvision image extension warning
+warnings.filterwarnings('ignore', category=UserWarning, module='torchvision.io.image')
 
 from model import get_model
 from dataset import get_dataloaders
@@ -25,9 +29,9 @@ class Trainer:
         self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
         print(f"✓ Using Label Smoothing: {label_smoothing}")
 
-        # Optimizer with stronger weight decay
+        # Optimizer with moderate weight decay
         self.optimizer = optim.SGD(model.parameters(), lr=lr,
-                                   momentum=0.9, weight_decay=1e-3)  # 增加weight decay
+                                   momentum=0.9, weight_decay=5e-4)  # 适度的weight decay
         # Learning rate scheduler
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer,
                                                    step_size=10, gamma=0.1)
@@ -180,6 +184,8 @@ class Trainer:
             json.dump(self.history, f, indent=4)
 
         self.plot_history(save_dir)
+
+        return total_time
     
     def plot_history(self, save_dir):
         """Plot training curves"""
@@ -216,19 +222,77 @@ class Trainer:
         plt.close()
         print(f"✓ Training curves saved to {save_dir}/training_curves.png")
 
+    def save_experiment_log(self, config, total_time, experiment_name=None):
+        """Save experiment results to log file"""
+        from datetime import datetime
+
+        # Generate experiment ID
+        if experiment_name is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            experiment_name = f"exp_{timestamp}"
+
+        # Load existing log
+        log_file = 'experiments_log.json'
+        if os.path.exists(log_file):
+            with open(log_file, 'r') as f:
+                log_data = json.load(f)
+        else:
+            log_data = {}
+
+        # Get final train accuracy from history
+        final_train_acc = self.history['train_acc'][-1] if self.history['train_acc'] else 0
+
+        # Create experiment entry
+        experiment_entry = {
+            "experiment_id": experiment_name,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "config": {
+                "model": "AlexNet",
+                "freeze_features": config.get('freeze_features', True),
+                "batch_size": config.get('batch_size', 16),
+                "lr": config.get('lr', 0.0005),
+                "dropout_p": config.get('dropout_p', 0.7),
+                "label_smoothing": config.get('label_smoothing', 0.1),
+                "weight_decay": 0.001,
+                "lr_schedule": "StepLR(step_size=10, gamma=0.1)",
+                "early_stopping_patience": config.get('early_stopping_patience', 15),
+                "augmentation": "strong (8 techniques)" if config.get('augment', True) else "basic"
+            },
+            "results": {
+                "best_epoch": self.best_epoch,
+                "total_epochs": len(self.history['train_loss']),
+                "train_acc": round(final_train_acc, 2),
+                "val_acc": round(self.best_val_acc, 2),
+                "test_acc": None,  # To be filled after testing
+                "training_time_min": round(total_time / 60, 2)
+            },
+            "notes": ""
+        }
+
+        # Add to log
+        log_data[experiment_name] = experiment_entry
+
+        # Save log
+        with open(log_file, 'w') as f:
+            json.dump(log_data, f, indent=2)
+
+        print(f"\n✓ Experiment logged: {experiment_name}")
+        print(f"  Val Acc: {self.best_val_acc:.2f}%")
+        print(f"  See experiments_log.json for details")
+
 
 def main():
-    # Configuration parameters - 优化以防止过拟合
+    # Configuration parameters - AGGRESSIVE VERSION (追赶同学)
     config = {
         'data_root': 'data',  # Data root directory (contains train/val/test)
         'csv_file': 'data/gt_training.csv',  # CSV file path
-        'batch_size': 16,  # 减小batch size (32 -> 16)，增加随机性
-        'lr': 0.0005,  # 降低学习率 (0.001 -> 0.0005)，更稳定的训练
-        'num_epochs': 50,  # 增加最大epoch数，配合early stopping
+        'batch_size': 32,  # 增大batch size，更稳定的梯度
+        'lr': 0.001,  # 提高学习率，加快收敛
+        'num_epochs': 50,  # 最大epoch数
         'augment': True,  # Whether to use data augmentation
-        'freeze_features': True,  # 冻结特征层，只训练分类器（重要！）
-        'dropout_p': 0.7,  # Dropout概率
-        'label_smoothing': 0.1,  # Label smoothing系数
+        'freeze_features': False,  # 不冻结！允许微调整个网络
+        'dropout_p': 0.5,  # 降低dropout，增强学习能力
+        'label_smoothing': 0.0,  # 去掉label smoothing
         'early_stopping_patience': 15,  # Early stopping耐心值
     }
 
@@ -273,7 +337,17 @@ def main():
                      lr=config['lr'], num_epochs=config['num_epochs'],
                      label_smoothing=config['label_smoothing'],
                      early_stopping_patience=config['early_stopping_patience'])
-    trainer.train(save_dir='models')
+
+    # Train and log experiment
+    total_time = trainer.train(save_dir='models')
+
+    # Ask for experiment name (optional)
+    print("\n" + "="*60)
+    exp_name = input("Enter experiment name (or press Enter for auto-generated): ").strip()
+    if not exp_name:
+        exp_name = None
+
+    trainer.save_experiment_log(config, total_time, experiment_name=exp_name)
 
 
 if __name__ == '__main__':
